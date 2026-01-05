@@ -13,12 +13,90 @@ enum Role {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String?  // GitHub 로그인 사용자는 없을 수 있음
-  role      Role     @default(USER)
+  id        Int       @id @default(autoincrement())
+  email     String    @unique
+  password  String?   // OAuth 사용자는 null 가능
+  name      String
+  role      Role      @default(USER)
+  image     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
+  posts     Post[]
+  comments  Comment[]
+  likes     Like[]
+  accounts  Account[]
+}
+
+model Account {
+  id                 Int    @id @default(autoincrement())
+  userId             Int
+  provider           String
+  providerAccountId  String
+  accessToken        String?
+  refreshToken       String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  posts     Post[]
+}
+
+model Post {
+  id         Int       @id @default(autoincrement())
+  title      String
+  content    String   @db.LongText
+  authorId   Int
+  categoryId Int
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  author    User     @relation(fields: [authorId], references: [id])
+  category  Category @relation(fields: [categoryId], references: [id])
+  comments  Comment[]
+  likes     Like[]
+
+  @@index([title])
+}
+
+model Comment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  authorId  Int
+  postId    Int
+  parentId  Int?
+  isDeleted Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  author   User     @relation(fields: [authorId], references: [id])
+  post     Post     @relation(fields: [postId], references: [id])
+  parent   Comment? @relation("CommentToComment", fields: [parentId], references: [id])
+  replies  Comment[] @relation("CommentToComment")
 }
+
+model Like {
+  id     Int @id @default(autoincrement())
+  userId Int
+  postId Int
+
+  user User @relation(fields: [userId], references: [id])
+  post Post @relation(fields: [postId], references: [id])
+
+  @@unique([userId, postId])
+}
+
+model StopWord {
+  id    Int    @id @default(autoincrement())
+  word  String @unique
+}
+
 
