@@ -3,6 +3,7 @@ import { authOptions } from "./api/auth/[...nextauth]/route";
 import ContributionGraph from "@/components/ContributionGraph";
 import CategoryNav from "@/components/CategoryNav";
 import PostList from "@/components/PostList";
+import Link from "next/link";
 
 export default async function HomePage() {
   const session = await getServerSession(authOptions);
@@ -19,12 +20,18 @@ export default async function HomePage() {
       {/* 2. 관리자 전용 버튼 (관리자일 때만 노출) */}
       {isAdmin && (
         <div className="flex gap-2 mb-6">
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm">
+          <Link
+            href="/write"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+          >
             게시글 작성
-          </button>
-          <button className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm">
+          </Link>
+          <Link
+            href="/admin/users"
+            className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-900 transition-colors"
+          >
             회원 관리
-          </button>
+          </Link>
         </div>
       )}
 
