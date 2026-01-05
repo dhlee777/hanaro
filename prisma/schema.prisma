@@ -13,28 +13,36 @@ enum Role {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
-  email     String    @unique
-  password  String?   // OAuth 사용자는 null 가능
-  name      String
-  role      Role      @default(USER)
+  id        Int      @id @default(autoincrement())
+  email     String?  @unique
+  password  String?
+  name      String?
+  role      Role     @default(USER)
   image     String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  emailVerified DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  posts     Post[]
-  comments  Comment[]
-  likes     Like[]
-  accounts  Account[]
+  posts    Post[]
+  comments Comment[]
+  likes    Like[]
+  accounts Account[]
+  sessions Session[]
 }
 
 model Account {
-  id                 Int    @id @default(autoincrement())
-  userId             Int
-  provider           String
-  providerAccountId  String
-  accessToken        String?
-  refreshToken       String?
+  id                String  @id @default(cuid())
+  userId            Int
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -47,22 +55,22 @@ model Category {
   slug      String   @unique
   createdAt DateTime @default(now())
 
-  posts     Post[]
+  posts Post[]
 }
 
 model Post {
-  id         Int       @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   title      String
   content    String   @db.LongText
   authorId   Int
   categoryId Int
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  author    User     @relation(fields: [authorId], references: [id])
-  category  Category @relation(fields: [categoryId], references: [id])
-  comments  Comment[]
-  likes     Like[]
+  author   User      @relation(fields: [authorId], references: [id])
+  category Category  @relation(fields: [categoryId], references: [id])
+  comments Comment[]
+  likes    Like[]
 
   @@index([title])
 }
@@ -77,10 +85,10 @@ model Comment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author   User     @relation(fields: [authorId], references: [id])
-  post     Post     @relation(fields: [postId], references: [id])
-  parent   Comment? @relation("CommentToComment", fields: [parentId], references: [id])
-  replies  Comment[] @relation("CommentToComment")
+  author  User      @relation(fields: [authorId], references: [id])
+  post    Post      @relation(fields: [postId], references: [id])
+  parent  Comment?  @relation("CommentToComment", fields: [parentId], references: [id])
+  replies Comment[] @relation("CommentToComment")
 }
 
 model Like {
@@ -95,8 +103,23 @@ model Like {
 }
 
 model StopWord {
-  id    Int    @id @default(autoincrement())
-  word  String @unique
+  id   Int    @id @default(autoincrement())
+  word String @unique
 }
 
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       Int
+  expires      DateTime
 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
