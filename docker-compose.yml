@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: hanaro-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: hanadb
+      MYSQL_USER: hanaro
+      MYSQL_PASSWORD: 12345678
+      MYSQL_ROOT_PASSWORD: 12345678
+      TZ: Asia/Seoul
+    ports:
+      - "3308:3306"
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_0900_ai_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
