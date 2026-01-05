@@ -5,10 +5,13 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 
+// Role 타입을 명확히 정의 (enum Role과 일치)
+type UserRole = "USER" | "ADMIN";
+
 export const authOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as const, // 타입을 상수로 고정
   },
   providers: [
     GitHub({
@@ -16,12 +19,13 @@ export const authOptions = {
       clientSecret: process.env.GITHUB_SECRET!,
       allowDangerousEmailAccountLinking: true,
       profile(profile) {
+        // 처음 가입하는 사용자의 기본 정보 설정
         return {
           id: profile.id.toString(),
           name: profile.name ?? profile.login,
           email: profile.email,
           image: profile.avatar_url,
-          role: "USER",
+          role: "USER" as UserRole, // 기본 역할 할당
         };
       },
     }),
@@ -33,9 +37,7 @@ export const authOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) {
-          return null;
-        }
+        if (!credentials?.email || !credentials.password) return null;
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
@@ -54,7 +56,7 @@ export const authOptions = {
           id: user.id.toString(),
           email: user.email,
           name: user.name,
-          role: user.role,
+          role: user.role as UserRole, // DB의 role 전달
         };
       },
     }),
@@ -64,18 +66,23 @@ export const authOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = user.role;
+        token.role = (user as any).role; // any 혹은 인터페이스 확장을 통해 접근
       }
       return token;
     },
 
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id;
-        session.user.role = token.role;
+        session.user.id = token.id as string;
+        session.user.role = token.role as UserRole;
       }
       return session;
     },
+  },
+  // 에러 발생 시 커스텀 로그인 페이지로 이동시키려면 아래 설정 추가 가능
+  pages: {
+    signIn: "/login",
+    error: "/login",
   },
 };
 

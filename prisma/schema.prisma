@@ -13,15 +13,15 @@ enum Role {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String?  @unique
-  password  String?
-  name      String?
-  role      Role     @default(USER)
-  image     String?
+  id            Int       @id @default(autoincrement())
+  email         String?   @unique
+  password      String?
+  name          String?
+  role          Role      @default(USER)
+  image         String?
   emailVerified DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   posts    Post[]
   comments Comment[]
@@ -53,6 +53,7 @@ model Category {
   id        Int      @id @default(autoincrement())
   name      String   @unique
   slug      String   @unique
+  order     Int      @default(0) // 카테고리 노출 순서 제어용
   createdAt DateTime @default(now())
 
   posts Post[]
@@ -67,28 +68,32 @@ model Post {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  author   User      @relation(fields: [authorId], references: [id])
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   category Category  @relation(fields: [categoryId], references: [id])
   comments Comment[]
   likes    Like[]
 
-  @@index([title])
+  @@index([title]) // 제목 검색용
+  @@index([createdAt(sort: Desc)]) // 무한 스크롤 최신순 정렬 최적화
 }
 
 model Comment {
   id        Int      @id @default(autoincrement())
-  content   String
+  content   String   @db.Text
   authorId  Int
   postId    Int
-  parentId  Int?
-  isDeleted Boolean  @default(false)
+  parentId  Int? // 답글(대댓글) 구현을 위한 자기 참조
+  isDeleted Boolean  @default(false) // "삭제된 댓글입니다" 표시용
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author  User      @relation(fields: [authorId], references: [id])
-  post    Post      @relation(fields: [postId], references: [id])
-  parent  Comment?  @relation("CommentToComment", fields: [parentId], references: [id])
+  author  User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post    Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent  Comment?  @relation("CommentToComment", fields: [parentId], references: [id], onDelete: Cascade)
   replies Comment[] @relation("CommentToComment")
+
+  @@index([postId])
+  @@index([createdAt(sort: Asc)]) // 댓글은 보통 오래된 순서대로 정렬
 }
 
 model Like {
@@ -96,10 +101,10 @@ model Like {
   userId Int
   postId Int
 
-  user User @relation(fields: [userId], references: [id])
-  post Post @relation(fields: [postId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, postId])
+  @@unique([userId, postId]) // 한 유저가 한 게시글에 좋아요 한 번만 가능
 }
 
 model StopWord {
