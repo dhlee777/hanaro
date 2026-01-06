@@ -73,3 +73,15 @@ export async function DELETE(
   await prisma.post.delete({ where: { id: postId } });
   return NextResponse.json({ message: "성공적으로 삭제되었습니다." });
 }
+
+// GET: 수정 페이지에서 기존 데이터를 불러오기 위함
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const post = await prisma.post.findUnique({
+    where: { id: parseInt(id) },
+  });
+  return NextResponse.json(post);
+}
