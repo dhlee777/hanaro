@@ -1,47 +1,109 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import {
+  format,
+  startOfYear,
+  endOfYear,
+  eachDayOfInterval,
+  startOfMonth,
+} from "date-fns";
 
-// 임시 데이터 (나중에 서버에서 실제 게시글 날짜 데이터를 받아와야 합니다)
-const generateMockData = () => {
-  const data: Record<string, number> = {};
-  const today = new Date();
-  for (let i = 0; i < 90; i++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
-    const dateStr = date.toISOString().split("T")[0];
-    data[dateStr] = Math.floor(Math.random() * 5); // 0~4개 사이의 랜덤 데이터
-  }
-  return data;
-};
+const ContributionGraph = () => {
+  const [activityData, setActivityData] = useState<Record<string, number>>({});
 
-export default function ContributionGraph() {
-  const data = generateMockData();
-  const days = Array.from({ length: 91 }, (_, i) => {
-    const date = new Date();
-    date.setDate(date.getDate() - (90 - i));
-    return date.toISOString().split("T")[0];
+  const startDate = startOfYear(new Date(2026, 0, 1));
+  const endDate = endOfYear(new Date(2026, 11, 31));
+  const allDays = eachDayOfInterval({ start: startDate, end: endDate });
+
+  useEffect(() => {
+    fetch("/api/stats")
+      .then((res) => res.json())
+      .then((data) => setActivityData(data));
+  }, []);
+
+  const cellSize = 13;
+  const gap = 4;
+  const totalCellWidth = cellSize + gap;
+
+  const monthLabels = Array.from({ length: 12 }).map((_, i) => {
+    const monthStart = startOfMonth(new Date(2026, i, 1));
+    const dayOffset = allDays.findIndex(
+      (day) => day.getTime() === monthStart.getTime()
+    );
+    return {
+      name: format(monthStart, "MMM"),
+      index: Math.floor(dayOffset / 7),
+    };
   });
 
-  const getColor = (count: number) => {
+  const getColorClass = (count: number) => {
     if (!count || count === 0) return "bg-gray-100";
     if (count === 1) return "bg-green-200";
-    if (count === 2) return "bg-green-300";
-    if (count === 3) return "bg-green-500";
-    return "bg-green-700";
+    if (count === 2) return "bg-green-400";
+    if (count === 3) return "bg-green-600";
+    return "bg-green-800";
   };
 
   return (
-    <div className="flex flex-wrap gap-1">
-      {days.map((date) => (
-        <div
-          key={date}
-          title={`${date}: ${data[date] || 0} posts`}
-          className={`w-3 h-3 md:w-4 md:h-4 rounded-sm ${getColor(
-            data[date] || 0
-          )} transition-colors`}
-        />
-      ))}
+    <div className="flex flex-col items-center w-full overflow-x-auto p-6 bg-white rounded-lg border">
+      <div className="relative inline-block">
+        {/* 월별 라벨 */}
+        <div className="flex mb-3 text-[11px] text-gray-500 h-4">
+          <div className="w-10" />
+          {monthLabels.map((month, i) => (
+            <div
+              key={i}
+              className="absolute"
+              style={{ left: `${month.index * totalCellWidth + 40}px` }}
+            >
+              {month.name}
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          {/* 요일 라벨 */}
+          <div className="flex flex-col gap-1 text-[11px] text-gray-400 pr-2 pt-1">
+            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, i) => (
+              <div
+                key={day}
+                style={{ height: `${cellSize}px` }}
+                className="flex items-center"
+              >
+                {i % 2 === 1 ? day : ""}
+              </div>
+            ))}
+          </div>
+
+          {/* 잔디 격자 */}
+          <div
+            className="grid grid-flow-col"
+            style={{
+              gridTemplateRows: `repeat(7, ${cellSize}px)`,
+              gap: `${gap}px`,
+            }}
+          >
+            {allDays.map((day) => {
+              const dateKey = format(day, "yyyy-MM-dd");
+              const count = activityData[dateKey] || 0;
+
+              return (
+                <div
+                  key={day.toISOString()}
+                  title={`${dateKey}: ${count} activities`}
+                  style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
+                  className={`rounded-[2.5px] ${getColorClass(
+                    count
+                  )} hover:ring-2 hover:ring-gray-300 transition-all cursor-pointer`}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default ContributionGraph;
