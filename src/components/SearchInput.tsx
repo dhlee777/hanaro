@@ -1,20 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Search } from "lucide-react";
 
 export default function SearchInput() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [keyword, setKeyword] = useState(searchParams.get("search") || "");
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 현재 경로를 유지하면서 쿼리 스트링만 변경합니다.
     if (keyword.trim()) {
-      router.push(`/?search=${encodeURIComponent(keyword)}`);
+      router.push(`${pathname}?search=${encodeURIComponent(keyword)}`);
     } else {
-      router.push("/"); // 검색어 없으면 전체보기
+      router.push(pathname); // 검색어 없으면 현재 페이지의 전체 목록
     }
   };
 

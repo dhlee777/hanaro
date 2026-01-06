@@ -30,7 +30,7 @@ export default function RegisterPage() {
 
       if (res.ok) {
         alert("회원가입 성공! 로그인 페이지로 이동합니다.");
-        router.push("/login");
+        router.push("/auth/login");
       } else {
         setError(data.message || "오류가 발생했습니다.");
       }

@@ -1,17 +1,15 @@
-import NextAuth from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import GitHub from "next-auth/providers/github";
 import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
-
-// Role 타입을 명확히 정의 (enum Role과 일치)
+import { PrismaAdapter } from "@auth/prisma-adapter";
 type UserRole = "USER" | "ADMIN";
 
-export const authOptions = {
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
-    strategy: "jwt" as const, // 타입을 상수로 고정
+    strategy: "jwt",
   },
   providers: [
     GitHub({
@@ -19,17 +17,15 @@ export const authOptions = {
       clientSecret: process.env.GITHUB_SECRET!,
       allowDangerousEmailAccountLinking: true,
       profile(profile) {
-        // 처음 가입하는 사용자의 기본 정보 설정
         return {
           id: profile.id.toString(),
           name: profile.name ?? profile.login,
           email: profile.email,
           image: profile.avatar_url,
-          role: "USER" as UserRole, // 기본 역할 할당
+          role: "USER" as UserRole,
         };
       },
     }),
-
     Credentials({
       name: "Credentials",
       credentials: {
@@ -37,40 +33,45 @@ export const authOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) return null;
+        if (!credentials?.email || !credentials.password) {
+          throw new Error("이메일과 비밀번호를 입력해주세요.");
+        }
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
         });
 
-        if (!user || !user.password) return null;
+        // 유저가 없거나 비밀번호가 없는(소셜 가입) 경우
+        if (!user || !user.password) {
+          throw new Error("존재하지 않는 계정입니다.");
+        }
 
         const isValid = await bcrypt.compare(
           credentials.password,
           user.password
         );
 
-        if (!isValid) return null;
+        if (!isValid) {
+          throw new Error("비밀번호가 일치하지 않습니다.");
+        }
 
         return {
           id: user.id.toString(),
           email: user.email,
           name: user.name,
-          role: user.role as UserRole, // DB의 role 전달
+          role: user.role as UserRole,
         };
       },
     }),
   ],
-
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as any).role; // any 혹은 인터페이스 확장을 통해 접근
+        token.role = (user as any).role;
       }
       return token;
     },
-
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
@@ -79,11 +80,11 @@ export const authOptions = {
       return session;
     },
   },
-  // 에러 발생 시 커스텀 로그인 페이지로 이동시키려면 아래 설정 추가 가능
   pages: {
-    signIn: "/login",
-    error: "/login",
+    signIn: "/auth/login", // 실제 파일 경로인 /auth/login으로 수정
+    error: "/auth/login",
   },
+  secret: process.env.NEXTAUTH_SECRET, // 보안을 위해 반드시 추가
 };
 
 const handler = NextAuth(authOptions);
