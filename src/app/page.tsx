@@ -19,6 +19,12 @@ async function getPosts() {
           // 작성자 정보 포함
           select: { name: true },
         },
+        _count: {
+          select: {
+            likes: true, // 좋아요 개수를 가져옴
+            comments: true, // 댓글 개수를 가져옴
+          },
+        },
       },
       orderBy: {
         createdAt: "desc", // 최신순 정렬

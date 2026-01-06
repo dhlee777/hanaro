@@ -52,7 +52,7 @@ export default function PostList({ posts }: { posts: Post[] }) {
             <div className="flex items-center gap-4 text-gray-500 text-xs">
               <div className="flex items-center gap-1">
                 <Heart size={14} className="text-gray-400" />
-                <span>0</span> {/* 좋아요 기능 추가 전까진 0으로 표시 */}
+                <span>{post._count?.likes || 0}</span>
               </div>
               <div className="flex items-center gap-1">
                 <MessageCircle size={14} />
