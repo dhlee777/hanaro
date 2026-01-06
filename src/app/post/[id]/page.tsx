@@ -4,42 +4,49 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Heart, MessageCircle, User, Calendar } from "lucide-react";
 import LikeButton from "@/components/LikeButton";
+import CommentSection from "@/components/CommentSection"; // 댓글 컴포넌트 추가
+
 const prisma = new PrismaClient();
 
 export default async function PostDetailPage({
   params,
 }: {
-  params: Promise<{ id: string }>; // 1. 타입을 Promise로 변경
+  params: Promise<{ id: string }>;
 }) {
-  // 2. params를 await로 기다려서 받아옵니다.
   const resolvedParams = await params;
   const postId = parseInt(resolvedParams.id);
   const session = await getServerSession(authOptions);
+
+  // 현재 유저 정보 및 관리자 여부 확인
   const currentUserId = session?.user?.id ? parseInt(session.user.id) : null;
-  // 3. postId가 제대로 숫자인지 체크 (디버깅용)
+  const isAdmin = session?.user?.role === "ADMIN";
+
   if (isNaN(postId)) {
     console.error("잘못된 게시글 ID입니다:", resolvedParams.id);
     return notFound();
   }
 
-  // 4. 이제 Prisma 호출
+  // 데이터 가져오기 (댓글 정보 포함)
   const post = await prisma.post.findUnique({
-    where: {
-      id: postId, // 이제 정확한 숫자가 들어갑니다.
-    },
+    where: { id: postId },
     include: {
       author: true,
       category: true,
-      likes: true, // 좋아요 목록 가져오기
+      likes: true,
+      comments: {
+        include: { author: { select: { name: true } } },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
 
   if (!post) return notFound();
-  // 현재 유저가 이 글에 좋아요를 눌렀는지 확인
-  // 수정된 판별 로직: 반드시 타입을 맞춰서 비교 (숫자 vs 숫자)
+
+  // 좋아요 여부 판별
   const isLiked = currentUserId
     ? post.likes.some((like) => like.userId === currentUserId)
     : false;
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-12">
       {/* 카테고리 & 날짜 */}
@@ -70,7 +77,6 @@ export default async function PostDetailPage({
           </div>
         </div>
 
-        {/* 좋아요/댓글 요약 (클라이언트 컴포넌트로 분리 예정) */}
         <div className="flex gap-4">
           <LikeButton
             postId={post.id}
@@ -80,7 +86,8 @@ export default async function PostDetailPage({
           />
           <div className="flex items-center gap-1 text-gray-500">
             <MessageCircle size={20} />
-            <span className="text-sm font-medium">0</span>
+            {/* 댓글 개수 실시간 반영 */}
+            <span className="text-sm font-medium">{post.comments.length}</span>
           </div>
         </div>
       </div>
@@ -90,15 +97,25 @@ export default async function PostDetailPage({
         {post.content}
       </div>
 
-      {/* 댓글 영역 (컴포넌트 추가 예정) */}
+      {/* 댓글 영역 통합 */}
       <section className="border-t pt-10">
         <h3 className="text-2xl font-bold mb-8 flex items-center gap-2">
-          Comments <span className="text-blue-600 text-lg">0</span>
+          Comments{" "}
+          <span className="text-blue-600 text-lg">{post.comments.length}</span>
         </h3>
-        {/* 여기에 CommentSection 컴포넌트 삽입 */}
-        <div className="p-8 bg-gray-50 rounded-xl text-center text-gray-500 border-2 border-dashed">
-          댓글 기능이 곧 업데이트됩니다!
-        </div>
+
+        {/* CommentSection 컴포넌트에 필요한 모든 데이터를 전달합니다 */}
+        <CommentSection
+          postId={post.id}
+          initialComments={post.comments.map((c) => ({
+            ...c,
+            createdAt: c.createdAt.toISOString(), // Date 객체를 문자열로 변환하여 전달
+            updatedAt: c.updatedAt.toISOString(), // updatedAt 추가
+          }))}
+          isLoggedIn={!!session}
+          currentUserId={currentUserId}
+          isAdmin={isAdmin}
+        />
       </section>
     </div>
   );

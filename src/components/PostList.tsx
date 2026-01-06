@@ -56,7 +56,7 @@ export default function PostList({ posts }: { posts: Post[] }) {
               </div>
               <div className="flex items-center gap-1">
                 <MessageCircle size={14} />
-                <span>0</span>
+                <span>{post._count?.comments || 0}</span>
               </div>
 
               {/* 작성자 이름 표시 */}
