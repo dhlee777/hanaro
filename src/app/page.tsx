@@ -3,31 +3,38 @@ import { authOptions } from "./api/auth/[...nextauth]/route";
 import ContributionGraph from "@/components/ContributionGraph";
 import CategoryNav from "@/components/CategoryNav";
 import PostList from "@/components/PostList";
+import SearchInput from "@/components/SearchInput"; // 검색 입력 컴포넌트 추가
 import Link from "next/link";
 import { PrismaClient } from "@prisma/client";
 
-// 1. Prisma 클라이언트 생성 (데이터베이스 연결)
 const prisma = new PrismaClient();
 
-// 2. 게시글 데이터를 가져오는 비동기 함수
-async function getPosts() {
+// 2. 검색어를 인자로 받아 필터링하는 함수로 수정
+async function getPosts(search?: string) {
   try {
     const posts = await prisma.post.findMany({
+      where: search
+        ? {
+            OR: [
+              { title: { contains: search } }, // 제목에 포함
+              { content: { contains: search } }, // 내용에 포함
+            ],
+          }
+        : {},
       include: {
-        category: true, // 카테고리 이름 표시를 위해 포함
+        category: true,
         author: {
-          // 작성자 정보 포함
           select: { name: true },
         },
         _count: {
           select: {
-            likes: true, // 좋아요 개수를 가져옴
-            comments: true, // 댓글 개수를 가져옴
+            likes: true,
+            comments: true,
           },
         },
       },
       orderBy: {
-        createdAt: "desc", // 최신순 정렬
+        createdAt: "desc",
       },
     });
     return posts;
@@ -37,12 +44,21 @@ async function getPosts() {
   }
 }
 
-export default async function HomePage() {
+// Next.js 15+ 규격에 맞춰 searchParams를 Promise로 처리
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string }>;
+}) {
   const session = await getServerSession(authOptions);
   const isAdmin = session?.user?.role === "ADMIN";
 
-  // 3. 실제 DB 데이터 가져오기
-  const posts = await getPosts();
+  // URL에서 검색어 추출 (/?search=키워드)
+  const resolvedParams = await searchParams;
+  const searchTerm = resolvedParams.search;
+
+  // 검색어를 반영하여 데이터 가져오기
+  const posts = await getPosts(searchTerm);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
@@ -78,16 +94,29 @@ export default async function HomePage() {
 
         {/* 4. 메인 게시판 영역 */}
         <section className="flex-1">
+          {/* 검색창: 기존 input 대신 제작한 SearchInput 컴포넌트 사용 */}
           <div className="mb-6">
-            <input
-              type="text"
-              placeholder="제목 + 내용 검색"
-              className="w-full p-2 border rounded-md"
-            />
+            <SearchInput />
           </div>
 
-          {/* 4. 가져온 데이터를 PostList에 posts라는 이름으로 전달 */}
-          <PostList posts={posts} />
+          {/* 검색 결과 안내 문구 */}
+          {searchTerm && (
+            <div className="mb-4 text-gray-600 animate-in fade-in">
+              <span className="font-bold text-blue-600">"{searchTerm}"</span>에
+              대한 검색 결과 ({posts.length}건)
+            </div>
+          )}
+
+          {/* 게시글 리스트 */}
+          {posts.length > 0 ? (
+            <PostList posts={posts} />
+          ) : (
+            <div className="text-center py-20 bg-gray-50 rounded-xl border-2 border-dashed text-gray-400">
+              {searchTerm
+                ? "검색 결과가 없습니다. 다른 키워드로 검색해보세요!"
+                : "등록된 게시글이 없습니다."}
+            </div>
+          )}
         </section>
       </div>
     </div>
